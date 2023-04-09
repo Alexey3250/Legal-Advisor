@@ -1,26 +1,55 @@
-# Import the required libraries
-from app import Flask, request
+import os
+from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-import docsearch
-import chain
+from twilio.rest import Client
+from dotenv import load_dotenv
+
+# Load the keys.env file
+load_dotenv("keys.env")
+
+# Access the keys
+account_sid = os.environ.get("ACCOUNT_SID")
+auth_token = os.environ.get("AUTH_TOKEN")
+
+client = Client(account_sid, auth_token)
 
 app = Flask(__name__)
 
-# Define a route to handle incoming messages from Twilio
-@app.route("/whatsapp", methods=["POST"])
-def whatsapp():
-    # Get the incoming message text
-    incoming_msg = request.values.get("Body", "").strip()
+def handle_incoming_message(message):
+    # Replace the following line with the actual code to get the answer using your model
+    answer = "Hello, Alex!"
+    return answer
 
-    # Perform similarity search and generate an answer
-    docs = docsearch.similarity_search(incoming_msg)
-    answer = chain.run(input_documents=docs, question=incoming_msg)
 
-    # Create a Twilio MessagingResponse object to send the answer
-    response = MessagingResponse()
-    response.message(answer)
 
-    return str(response)
+@app.route('/whatsapp', methods=['POST'])
+def receive_message():
+    message = request.form.get('Body')
+    from_number = request.form.get('From')
+    to_number = request.form.get('To')
 
-if __name__ == "__main__":
-    app.run()
+    if message:
+        response = handle_incoming_message(message)
+
+        # Send the response using Twilio API
+        twilio_message = client.messages.create(
+            body=response,
+            from_=to_number,
+            to=from_number
+        )
+        print(f"Sent message with SID: {twilio_message.sid}")
+        return ('', 204)
+    else:
+        return ('', 204)
+
+@app.route("/status_callback", methods=["POST"])
+def status_callback():
+    message_sid = request.values.get("MessageSid", "")
+    message_status = request.values.get("MessageStatus", "")
+
+    print(f"Message SID: {message_sid} | Status: {message_status}")
+
+    return ('', 204)
+
+if __name__ == '__main__':
+    app.run(debug=True)
